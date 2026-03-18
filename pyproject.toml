@@ -1,10 +1,18 @@
 [project]
-name = "distlab"
+name = "scalix"
 version = "0.1.0"
-description = "Add your description here"
+description = "Distributed training paradigms and efficient kernel implementations for scalable deep learning systems"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "numpy>=2.4.3",
+    "packaging>=26.0",
     "torch>=2.10.0",
+    "tqdm>=4.67.3",
+]
+
+[project.optional-dependencies]
+cuda = [
+    "triton>=3.6.0",
+    "flash-attn>=2.5.0,<2.7.0",
 ]
