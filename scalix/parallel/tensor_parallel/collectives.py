@@ -138,14 +138,11 @@ class _ReduceScatter(torch.autograd.Function):
 def identity(tensor: torch.Tensor, group: Optional[ProcessGroup] = None) -> torch.Tensor:
     return _Identity.apply(tensor, group)
 
-
 def all_reduce(tensor: torch.Tensor, group: Optional[ProcessGroup] = None) -> torch.Tensor:
     return _AllReduce.apply(tensor, group)
 
-
 def all_gather(tensor: torch.Tensor, group: Optional[ProcessGroup] = None) -> torch.Tensor:
     return _AllGather.apply(tensor, group)
-
 
 def reduce_scatter(tensor: torch.Tensor, group: Optional[ProcessGroup] = None) -> torch.Tensor:
     return _ReduceScatter.apply(tensor, group)
