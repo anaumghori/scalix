@@ -3,6 +3,9 @@ import operator
 import torch
 import random
 import socket
+from logging import Logger
+from packaging import version
+from typing import Optional
 
 from scalix import distributed as dist
 
@@ -41,6 +44,20 @@ class MemoryBuffer(metaclass=Singleton):
         return self.buffer[name, dtype][:required_numel].view(shape)
 
 
+def get_untyped_storage(tensor: torch.Tensor) -> torch.UntypedStorage:
+    if version.parse(torch.__version__) >= version.parse("2.0"):
+        return tensor.untyped_storage()
+    else:
+        return tensor.storage().untyped()
+
+
+def tensor_from_untyped_storage(untyped_storage: torch.UntypedStorage, dtype: torch.dtype):
+    device = untyped_storage.device
+    tensor = torch.empty([], dtype=dtype, device=device)
+    tensor.set_(source=untyped_storage)
+    return tensor
+
+
 def find_free_port(min_port: int = 2000, max_port: int = 65000) -> int:
     while True:
         port = random.randint(min_port, max_port)
@@ -51,3 +68,37 @@ def find_free_port(min_port: int = 2000, max_port: int = 65000) -> int:
                 return port
         except OSError:
             continue
+
+
+def log_rank(
+    msg: str,
+    logger: Logger,
+    level: int,
+    group: Optional[dist.ProcessGroup] = None,
+    rank: Optional[int] = None,
+    category: Optional[str] = None,
+    is_separator: bool = False,
+    main_rank_only: bool = False,
+    **kwargs,
+):
+    if group is None:
+        from torch import distributed as torch_dist
+        group = torch_dist.distributed_c10d._get_default_group()
+
+    if category is not None:
+        kwargs["extra"] = kwargs.get("extra", {})
+        kwargs["extra"]["category"] = category
+
+    if is_separator:
+        kwargs["extra"] = kwargs.get("extra", {})
+        kwargs["extra"]["separator"] = True
+
+    if main_rank_only:
+        rank = 0
+
+    if rank is None or dist.get_rank(group) == rank:
+        if is_separator:
+            logger.log(level, "=" * 50, **kwargs)
+        logger.log(level, msg, **kwargs)
+        if is_separator:
+            logger.log(level, "=" * 50, **kwargs)
