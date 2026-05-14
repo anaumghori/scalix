@@ -5,6 +5,7 @@ import torch
 from torch.nn import functional as F
 
 import scalix.distributed as dist
+from scalix.parallel.tensor_parallel.collectives import all_reduce as differentiable_all_reduce
 from scalix.parallel.tensor_parallel.collectives import reduce_scatter
 from scalix.utils import MemoryBuffer
 
@@ -593,4 +594,12 @@ def row_linear(
     group: dist.ProcessGroup,
     tp_mode: TPLinearMode,
 ):
-    return _RowLinearAsync.apply(input, weight, bias, group, tp_mode)
+    # The overlapped row-parallel path is only implemented for REDUCE_SCATTER,
+    # which is also the intended main transformer training mode. ALL_REDUCE still
+    # has a valid non-async path so the public API remains honest about what works.
+    if tp_mode is TPLinearMode.REDUCE_SCATTER:
+        return _RowLinearAsync.apply(input, weight, bias, group, tp_mode)
+    if tp_mode is TPLinearMode.ALL_REDUCE:
+        output = F.linear(input, weight, bias)
+        return differentiable_all_reduce(output, group=group)
+    raise ValueError(f"Got unexpected mode: {tp_mode}.")
